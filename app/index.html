@@ -84,7 +84,7 @@
           </div>
         </article>
 
-        <!-- Potenciômetro com feedback visual/sonoro -->
+        <!-- Temperatura de referência (potenciômetro/slider) -->
         <article class="card">
           <div class="label">Temperatura de Referencia Limite</div>
           <div class="row">
@@ -103,6 +103,38 @@
             <div class="label">Feedback</div>
             <button class="btn" id="audioToggle">Ativar áudio/háptico</button>
           </div>
+        </article>
+
+        <!-- Sensor de Som com gravação automática + animação -->
+        <article class="card">
+          <div class="label">Sensor de Som</div>
+          <div class="row">
+            <div class="value" id="soundVal">—</div>
+            <span class="pill sound-pill" id="soundBadge">—</span>
+          </div>
+
+          <!-- Banner de gravação + animação -->
+          <div id="recordStatus" class="foot">Microfone desativado</div>
+          <div class="rec-ui" id="recUI" aria-hidden="true">
+            <div class="rec-mic" aria-label="gravando">
+              <div class="rec-pulse rec-p1"></div>
+              <div class="rec-pulse rec-p2"></div>
+              <div class="rec-dot"></div>
+            </div>
+            <div class="rec-bars" aria-hidden="true">
+              <span class="bar b1"></span>
+              <span class="bar b2"></span>
+              <span class="bar b3"></span>
+              <span class="bar b4"></span>
+              <span class="bar b5"></span>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <div class="label">Gravação automática</div>
+            <button class="btn" id="micToggle">Ativar</button>
+          </div>
+          <div class="foot" id="lastRecord">—</div>
         </article>
 
         <article class="card wide">

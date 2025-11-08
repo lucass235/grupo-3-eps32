@@ -214,3 +214,142 @@ canvas {
   color: var(--muted);
   font-size: 12px;
 }
+
+/* --- Sensor de Som --- */
+.sound-pill {
+  min-width: 76px;
+  text-align: center;
+}
+.lvl-baixo {
+  border-color: #2563eb;
+  background: #0d1530;
+  color: #bfdbfe;
+}
+.lvl-medio {
+  border-color: #f59e0b;
+  background: #2b1c07;
+  color: #fde68a;
+}
+.lvl-alto {
+  border-color: #ef4444;
+  background: #2b0c0c;
+  color: #fecaca;
+}
+
+/* Banner de gravação grande */
+#recordStatus.recording-banner {
+  margin-top: 10px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #fecaca;
+  background: #2b0c0c;
+  border: 1px solid #ef4444;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+/* UI de gravação (mic + barras) */
+.rec-ui {
+  display: none;
+  align-items: center;
+  gap: 14px;
+  margin-top: 10px;
+}
+.rec-ui.active {
+  display: flex;
+}
+
+.rec-mic {
+  position: relative;
+  width: 48px;
+  height: 48px;
+}
+.rec-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #ef4444;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.9);
+  animation: recBlink 1s infinite;
+}
+.rec-pulse {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 2px solid rgba(239, 68, 68, 0.5);
+  animation: recPulse 1.8s ease-out infinite;
+}
+.rec-p2 {
+  animation-delay: 0.6s;
+}
+@keyframes recPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.2);
+    opacity: 0;
+  }
+}
+@keyframes recBlink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.rec-bars {
+  display: flex;
+  gap: 4px;
+  height: 20px;
+  align-items: flex-end;
+}
+.rec-bars .bar {
+  width: 6px;
+  background: #ef4444;
+  border-radius: 3px;
+  animation: eq 1s ease-in-out infinite;
+}
+.rec-bars .b1 {
+  height: 30%;
+  animation-delay: 0s;
+}
+.rec-bars .b2 {
+  height: 55%;
+  animation-delay: 0.1s;
+}
+.rec-bars .b3 {
+  height: 85%;
+  animation-delay: 0.2s;
+}
+.rec-bars .b4 {
+  height: 55%;
+  animation-delay: 0.3s;
+}
+.rec-bars .b5 {
+  height: 35%;
+  animation-delay: 0.4s;
+}
+@keyframes eq {
+  0%,
+  100% {
+    transform: scaleY(0.6);
+  }
+  50% {
+    transform: scaleY(1.2);
+  }
+}

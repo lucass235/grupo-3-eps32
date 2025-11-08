@@ -67,19 +67,17 @@ function setThermometer(temp) {
     fill.style.background = "hsl(210 70% 70%)";
     return;
   }
-
   const pct = clamp01((temp - THERMO_MIN) / (THERMO_MAX - THERMO_MIN));
   fill.style.height = (pct * 100).toFixed(1) + "%";
-
-  // Se o limite do potenciômetro estiver definido, usar como referência de cor
   if (Number.isFinite(potLimit)) {
     const ratio = clamp01(temp / potLimit);
-    const hue = 220 - 220 * ratio; // Azul → Vermelho
+    const hue = 220 - 220 * ratio;
     const sat = 70 + 20 * ratio;
     const light = 65 - 25 * ratio;
-    fill.style.background = `hsl(${hue.toFixed(0)} ${sat.toFixed(0)}% ${light.toFixed(0)}%)`;
+    fill.style.background = `hsl(${hue.toFixed(0)} ${sat.toFixed(
+      0
+    )}% ${light.toFixed(0)}%)`;
   } else {
-    // Caso não tenha limite, cor padrão azulada
     fill.style.background = `hsl(210 70% 65%)`;
   }
 }
@@ -181,8 +179,6 @@ function setSlider(v) {
     };
     vibrate(patterns[z]);
   }
-
-  // Som
   updateAudioFromPot(v);
 }
 
@@ -258,6 +254,158 @@ function updateCorrelation(temp, hum) {
   corrChart.update("none");
 }
 
+/* ------------------ Sensor de Som + Gravação (UI melhorada) ------------------ */
+let prevSoundLevel = "—";
+let micEnabled = false,
+  mediaStream = null,
+  recorder = null,
+  isRecording = false;
+let recCountdownTimer = null;
+
+function normalizeSound(val) {
+  if (val == null) return "—";
+  const s = String(val)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  if (s.includes("alto")) return "alto";
+  if (s.includes("medio")) return "medio";
+  if (s.includes("baixo")) return "baixo";
+  return s;
+}
+function prettySound(level) {
+  if (level === "alto") return "Alto";
+  if (level === "medio") return "Médio";
+  if (level === "baixo") return "Baixo";
+  return "—";
+}
+function setSoundUI(level) {
+  const badge = el("soundBadge");
+  const val = el("soundVal");
+  if (!badge || !val) return;
+  val.textContent = prettySound(level);
+  badge.textContent = prettySound(level);
+  badge.classList.remove("lvl-baixo", "lvl-medio", "lvl-alto");
+  if (level === "baixo") badge.classList.add("lvl-baixo");
+  else if (level === "medio") badge.classList.add("lvl-medio");
+  else if (level === "alto") badge.classList.add("lvl-alto");
+}
+function showRecUI(show) {
+  const ui = el("recUI");
+  const banner = el("recordStatus");
+  if (!ui || !banner) return;
+  if (show) {
+    ui.classList.add("active");
+    banner.classList.add("recording-banner");
+  } else {
+    ui.classList.remove("active");
+    banner.classList.remove("recording-banner");
+  }
+}
+async function toggleMic() {
+  const btn = el("micToggle");
+  if (!micEnabled) {
+    try {
+      if (!navigator.mediaDevices?.getUserMedia)
+        throw new Error("getUserMedia indisponível");
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micEnabled = true;
+      btn.textContent = "Desativar";
+      el("recordStatus").textContent =
+        "Pronto: grava 5s quando o nível entrar em ALTO";
+    } catch (e) {
+      el("recordStatus").textContent = "Permita o microfone no navegador";
+    }
+  } else {
+    try {
+      if (isRecording && recorder) recorder.stop();
+    } catch {}
+    if (recCountdownTimer) {
+      clearInterval(recCountdownTimer);
+      recCountdownTimer = null;
+    }
+    showRecUI(false);
+    if (mediaStream) mediaStream.getTracks().forEach((t) => t.stop());
+    micEnabled = false;
+    mediaStream = null;
+    btn.textContent = "Ativar";
+    el("recordStatus").textContent = "Microfone desativado";
+  }
+}
+el("micToggle").addEventListener("click", toggleMic);
+
+function autoDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }, 0);
+}
+function tsFile() {
+  const d = new Date(),
+    pad = (n) => String(n).padStart(2, "0");
+  return (
+    d.getFullYear() +
+    pad(d.getMonth() + 1) +
+    pad(d.getDate()) +
+    "-" +
+    pad(d.getHours()) +
+    pad(d.getMinutes()) +
+    pad(d.getSeconds())
+  );
+}
+function startAutoRecord() {
+  if (!micEnabled || isRecording || !mediaStream) return;
+  try {
+    recorder = new MediaRecorder(mediaStream);
+  } catch (e) {
+    el("recordStatus").textContent = "MediaRecorder não suportado";
+    return;
+  }
+
+  const chunks = [];
+  recorder.ondataavailable = (e) => {
+    if (e.data && e.data.size > 0) chunks.push(e.data);
+  };
+  recorder.onstart = () => {
+    isRecording = true;
+    showRecUI(true);
+    const total = 5000;
+    const t0 = Date.now();
+    el("recordStatus").textContent = "GRAVANDO ÁUDIO (5.0 s)";
+    if (recCountdownTimer) clearInterval(recCountdownTimer);
+    recCountdownTimer = setInterval(() => {
+      const left = Math.max(0, total - (Date.now() - t0));
+      el("recordStatus").textContent =
+        "GRAVANDO ÁUDIO (" + (left / 1000).toFixed(1) + " s)";
+    }, 100);
+  };
+  recorder.onstop = () => {
+    isRecording = false;
+    if (recCountdownTimer) {
+      clearInterval(recCountdownTimer);
+      recCountdownTimer = null;
+    }
+    showRecUI(false);
+    const blob = new Blob(chunks, { type: "audio/webm" });
+      const name = "audio-" + tsFile() + ".webm";
+    // TODO: Por enquanto nao salva 
+    // autoDownload(blob, name);
+    // el("recordStatus").textContent = "Gravação salva: " + name;
+    // el("lastRecord").textContent = "último arquivo: " + name;
+    el("recordStatus").textContent = "Gravação concluída"
+  };
+  recorder.start();
+  setTimeout(() => {
+    if (recorder && recorder.state === "recording") recorder.stop();
+  }, 5000);
+}
+
 /* ------------------ Polling ------------------ */
 let timer = null;
 function startPolling() {
@@ -282,6 +430,8 @@ function startPolling() {
       const humidity = data?.humidity ?? data?.umidade ?? null;
       const tempRaw = data?.temperature ?? data?.temperatura ?? null;
       const potRaw = data?.slider ?? data?.pot ?? null;
+      const soundRaw =
+        data?.sensor_sound ?? data?.sensorSound ?? data?.sound ?? null;
 
       setState("botao", !!botao);
       setState("led", !!led);
@@ -325,15 +475,19 @@ function startPolling() {
           ? p.toFixed(0)
           : String(potRaw);
         setSlider(Number.isFinite(p) ? p : NaN);
-
-        // atualiza o limite
-        if (Number.isFinite(p)) potLimit = p;
-        else potLimit = NaN;
+        potLimit = Number.isFinite(p) ? p : NaN;
       } else {
         el("potVal").textContent = "—";
         setSlider(NaN);
         potLimit = NaN;
       }
+
+      const soundLevel = normalizeSound(soundRaw);
+      setSoundUI(soundLevel);
+      if (soundLevel === "alto" && prevSoundLevel !== "alto") {
+        startAutoRecord();
+      }
+      prevSoundLevel = soundLevel;
 
       if (Number.isFinite(tVal) && Number.isFinite(hVal))
         updateCorrelation(tVal, hVal);
