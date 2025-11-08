@@ -84,12 +84,12 @@
           </div>
         </article>
 
-        <!-- NOVO: Potenciômetro -->
+        <!-- Potenciômetro com feedback visual/sonoro -->
         <article class="card">
           <div class="label">Potenciômetro</div>
           <div class="row">
             <div class="value" id="potVal">—</div>
-            <span class="pill">0–100</span>
+            <span class="pill" id="potZone">—</span>
           </div>
           <div class="pot-wrap">
             <div class="pot-track">
@@ -98,6 +98,10 @@
             <div class="pot-scale">
               <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
             </div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <div class="label">Feedback</div>
+            <button class="btn" id="audioToggle">Ativar áudio/háptico</button>
           </div>
         </article>
 
