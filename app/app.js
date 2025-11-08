@@ -57,15 +57,31 @@ function pushTempo(v) {
 
 /* ------------------ Termômetro ------------------ */
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
+let potLimit = NaN;
+
 function setThermometer(temp) {
   const fill = el("thermoFill");
   if (!fill) return;
   if (!Number.isFinite(temp)) {
     fill.style.height = "0%";
+    fill.style.background = "hsl(210 70% 70%)";
     return;
   }
+
   const pct = clamp01((temp - THERMO_MIN) / (THERMO_MAX - THERMO_MIN));
   fill.style.height = (pct * 100).toFixed(1) + "%";
+
+  // Se o limite do potenciômetro estiver definido, usar como referência de cor
+  if (Number.isFinite(potLimit)) {
+    const ratio = clamp01(temp / potLimit);
+    const hue = 220 - 220 * ratio; // Azul → Vermelho
+    const sat = 70 + 20 * ratio;
+    const light = 65 - 25 * ratio;
+    fill.style.background = `hsl(${hue.toFixed(0)} ${sat.toFixed(0)}% ${light.toFixed(0)}%)`;
+  } else {
+    // Caso não tenha limite, cor padrão azulada
+    fill.style.background = `hsl(210 70% 65%)`;
+  }
 }
 
 /* ------------------ Potenciômetro (visual + som + háptico) ------------------ */
@@ -97,8 +113,8 @@ function updateAudioFromPot(p) {
     osc.start();
   }
   const pct = clamp01((p - POT_MIN) / (POT_MAX - POT_MIN));
-  const freq = 180 + 700 * pct; // 180 Hz → 880 Hz
-  const vol = 0.02 + 0.1 * pct; // volume suave
+  const freq = 180 + 700 * pct;
+  const vol = 0.02 + 0.1 * pct;
   const t = audioCtx.currentTime;
   osc.frequency.setTargetAtTime(freq, t, 0.02);
   gainNode.gain.setTargetAtTime(vol, t, 0.02);
@@ -142,24 +158,20 @@ function setSlider(v) {
   const pct = clamp01((v - POT_MIN) / (POT_MAX - POT_MIN));
   fill.style.width = (pct * 100).toFixed(1) + "%";
 
-  // Cor HSL fixa em 215° com saturação e luminosidade variando pelo valor
-  const sat = 70 + 20 * pct; // 70% → 90%
-  const light = 75 - 35 * pct; // 75% → 40%
+  const sat = 70 + 20 * pct;
+  const light = 75 - 35 * pct;
   fill.style.background = `hsl(215 ${sat.toFixed(0)}% ${light.toFixed(0)}%)`;
   fill.style.boxShadow = `0 0 ${8 + 24 * pct}px hsla(215, ${sat.toFixed(
     0
   )}%, ${light.toFixed(0)}%, ${0.35 * pct})`;
 
-  // Pulso suave quando muito alto
   if (pct >= 0.9) fill.classList.add("pulse");
   else fill.classList.remove("pulse");
 
-  // Zona + háptico em mudanças de faixa
   const z = potZone(v);
   zoneEl.textContent = potZoneLabel(z);
   if (z !== lastPotZone) {
     lastPotZone = z;
-    // Vibrações diferentes por zona
     const patterns = {
       0: [20],
       1: [30, 30, 30],
@@ -269,7 +281,7 @@ function startPolling() {
         data?.tempovida ?? data?.tempoVida ?? data?.uptime ?? null;
       const humidity = data?.humidity ?? data?.umidade ?? null;
       const tempRaw = data?.temperature ?? data?.temperatura ?? null;
-      const potRaw = data?.slider ?? data?.slider ?? data?.pot ?? null;
+      const potRaw = data?.slider ?? data?.pot ?? null;
 
       setState("botao", !!botao);
       setState("led", !!led);
@@ -313,9 +325,14 @@ function startPolling() {
           ? p.toFixed(0)
           : String(potRaw);
         setSlider(Number.isFinite(p) ? p : NaN);
+
+        // atualiza o limite
+        if (Number.isFinite(p)) potLimit = p;
+        else potLimit = NaN;
       } else {
         el("potVal").textContent = "—";
         setSlider(NaN);
+        potLimit = NaN;
       }
 
       if (Number.isFinite(tVal) && Number.isFinite(hVal))
