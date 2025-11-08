@@ -25,7 +25,7 @@ function setState(id, on) {
   raw.textContent = String(on);
 }
 
-// Chart.js – série do tempo de vida
+// Chart: tempo de vida
 const chartCtx = document.getElementById("tempoChart");
 const chart = new Chart(chartCtx, {
   type: "line",
@@ -44,7 +44,7 @@ const chart = new Chart(chartCtx, {
 });
 
 function pushTempo(v) {
-  const max = 40; // pontos no gráfico
+  const max = 40;
   const now = new Date();
   chart.data.labels.push(now.toLocaleTimeString());
   chart.data.datasets[0].data.push(v);
@@ -55,19 +55,78 @@ function pushTempo(v) {
   chart.update("none");
 }
 
-function clamp01(x) {
-  return Math.max(0, Math.min(1, x));
-}
-
+// Termômetro
+function clamp01(x) { return Math.max(0, Math.min(1, x)); }
 function setThermometer(temp) {
   const fill = el("thermoFill");
   if (!fill) return;
-  if (!Number.isFinite(temp)) {
-    fill.style.height = "0%";
-    return;
-    }
+  if (!Number.isFinite(temp)) { fill.style.height = "0%"; return; }
   const pct = clamp01((temp - THERMO_MIN) / (THERMO_MAX - THERMO_MIN));
   fill.style.height = (pct * 100).toFixed(1) + "%";
+}
+
+// --- NOVO: gráfico de correlação Temp × Umidade ---
+const corrCtx = document.getElementById("corrChart");
+const corrChart = new Chart(corrCtx, {
+  type: "scatter",
+  data: {
+    datasets: [
+      { label: "medidas", data: [], pointRadius: 3 },
+      { label: "tendência", data: [], type: "line", fill: false, pointRadius: 0, borderDash: [6, 4] },
+    ],
+  },
+  options: {
+    responsive: true,
+    animation: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { title: { display: true, text: "Temperatura (°C)" } },
+      y: { title: { display: true, text: "Umidade (%)" }, suggestedMin: 0, suggestedMax: 100 },
+    },
+  },
+});
+
+const CORR_MAX = 100;
+const histTemp = [];
+const histHum = [];
+
+function updateCorrelation(temp, hum) {
+  if (!Number.isFinite(temp) || !Number.isFinite(hum)) return;
+
+  histTemp.push(temp);
+  histHum.push(hum);
+  if (histTemp.length > CORR_MAX) { histTemp.shift(); histHum.shift(); }
+
+  // Atualiza pontos
+  corrChart.data.datasets[0].data = histTemp.map((t, i) => ({ x: t, y: histHum[i] }));
+
+  // Regressão linear simples (y = a + b x)
+  const n = histTemp.length;
+  if (n >= 2) {
+    const mean = (arr) => arr.reduce((s, v) => s + v, 0) / arr.length;
+    const mx = mean(histTemp);
+    const my = mean(histHum);
+    let num = 0, den = 0;
+    for (let i = 0; i < n; i++) {
+      const dx = histTemp[i] - mx;
+      num += dx * (histHum[i] - my);
+      den += dx * dx;
+    }
+    const b = den === 0 ? 0 : num / den;
+    const a = my - b * mx;
+
+    const xmin = Math.min(...histTemp);
+    const xmax = Math.max(...histTemp);
+    const line = [
+      { x: xmin, y: a + b * xmin },
+      { x: xmax, y: a + b * xmax },
+    ];
+    corrChart.data.datasets[1].data = line;
+  } else {
+    corrChart.data.datasets[1].data = [];
+  }
+
+  corrChart.update("none");
 }
 
 let timer = null;
@@ -88,36 +147,31 @@ function startPolling() {
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
 
-      // Tenta nomes flexíveis (ex.: tempovida vs tempoVida)
+      // Nomes flexíveis
       const botao = data?.botao ?? data?.button ?? data?.estadoBotao;
       const led = data?.led ?? data?.lampada ?? data?.estadoLed;
-      const tempoVida =
-        data?.tempovida ?? data?.tempoVida ?? data?.uptime ?? null;
-
-      // Novas variáveis
+      const tempoVida = data?.tempovida ?? data?.tempoVida ?? data?.uptime ?? null;
       const humidity = data?.humidity ?? data?.umidade ?? null;
-      const tempRaw =
-        data?.temperature ?? data?.temperatura ?? null;
+      const tempRaw = data?.temperature ?? data?.temperatura ?? null;
 
       setState("botao", !!botao);
       setState("led", !!led);
 
       if (tempoVida !== null && tempoVida !== undefined) {
         const n = Number(tempoVida);
-        el("tempoVal").textContent = Number.isFinite(n)
-          ? n
-          : String(tempoVida);
+        el("tempoVal").textContent = Number.isFinite(n) ? n : String(tempoVida);
         if (Number.isFinite(n)) pushTempo(n);
       } else {
         el("tempoVal").textContent = "—";
       }
 
+      let tVal = NaN, hVal = NaN;
+
       if (tempRaw !== null && tempRaw !== undefined) {
         const t = Number(tempRaw);
-        el("tempVal").textContent = Number.isFinite(t)
-          ? t.toFixed(1)
-          : String(tempRaw);
+        el("tempVal").textContent = Number.isFinite(t) ? t.toFixed(1) : String(tempRaw);
         setThermometer(Number.isFinite(t) ? t : NaN);
+        tVal = Number.isFinite(t) ? t : NaN;
       } else {
         el("tempVal").textContent = "—";
         setThermometer(NaN);
@@ -125,15 +179,18 @@ function startPolling() {
 
       if (humidity !== null && humidity !== undefined) {
         const h = Number(humidity);
-        el("humVal").textContent = Number.isFinite(h)
-          ? h.toFixed(1)
-          : String(humidity);
+        el("humVal").textContent = Number.isFinite(h) ? h.toFixed(1) : String(humidity);
+        hVal = Number.isFinite(h) ? h : NaN;
       } else {
         el("humVal").textContent = "—";
       }
 
-      el("lastUpdate").textContent =
-        "Atualizado " + new Date().toLocaleTimeString();
+      // Atualiza correlação se ambos válidos
+      if (Number.isFinite(tVal) && Number.isFinite(hVal)) {
+        updateCorrelation(tVal, hVal);
+      }
+
+      el("lastUpdate").textContent = "Atualizado " + new Date().toLocaleTimeString();
       statusEl.textContent = "🟢 conectado";
     } catch (err) {
       statusEl.textContent = "🔴 erro: " + err.message;
