@@ -1,0 +1,105 @@
+// 👉 Seu endpoint (já preenchido com o do print). Altere se desejar.
+const DEFAULT_ENDPOINT =
+  "https://grupo3-16a7b-default-rtdb.firebaseio.com/.json";
+
+const el = (id) => document.getElementById(id);
+const endpointInput = el("endpoint");
+const intervalInput = el("interval");
+const statusEl = el("status");
+
+endpointInput.value = DEFAULT_ENDPOINT;
+
+// Estado UI simples
+function setState(id, on) {
+  const box = el(id + "State");
+  const txt = el(id + "Txt");
+  const raw = el(id + "Raw");
+  if (!box || !txt || !raw) return;
+  box.classList.toggle("on", !!on);
+  box.classList.toggle("off", !on);
+  txt.textContent = on ? "ON" : "OFF";
+  raw.textContent = String(on);
+}
+
+// Chart.js – série do tempo de vida
+const chartCtx = document.getElementById("tempoChart");
+const chart = new Chart(chartCtx, {
+  type: "line",
+  data: {
+    labels: [],
+    datasets: [
+      { label: "tempo de vida", data: [], tension: 0.25, fill: false },
+    ],
+  },
+  options: {
+    responsive: true,
+    animation: false,
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true } },
+  },
+});
+
+function pushTempo(v) {
+  const max = 40; // pontos no gráfico
+  const now = new Date();
+  chart.data.labels.push(now.toLocaleTimeString());
+  chart.data.datasets[0].data.push(v);
+  if (chart.data.labels.length > max) {
+    chart.data.labels.shift();
+    chart.data.datasets[0].data.shift();
+  }
+  chart.update("none");
+}
+
+let timer = null;
+
+function startPolling() {
+  const url = endpointInput.value.trim();
+  const every = Math.max(parseInt(intervalInput.value, 10) || 2000, 500);
+
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+
+  async function tick() {
+    try {
+      statusEl.textContent = "🔄 atualizando…";
+      const res = await fetch(url, { cache: "no-cache" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+
+      // Tenta nomes flexíveis (ex.: tempovida vs tempoVida)
+      const botao = data?.botao ?? data?.button ?? data?.estadoBotao;
+      const led = data?.led ?? data?.lampada ?? data?.estadoLed;
+      const tempoVida =
+        data?.tempovida ?? data?.tempoVida ?? data?.uptime ?? null;
+
+      setState("botao", !!botao);
+      setState("led", !!led);
+      if (tempoVida !== null && tempoVida !== undefined) {
+        const n = Number(tempoVida);
+        el("tempoVal").textContent = Number.isFinite(n)
+          ? n
+          : String(tempoVida);
+        if (Number.isFinite(n)) pushTempo(n);
+      } else {
+        el("tempoVal").textContent = "—";
+      }
+
+      el("lastUpdate").textContent =
+        "Atualizado " + new Date().toLocaleTimeString();
+      statusEl.textContent = "🟢 conectado";
+    } catch (err) {
+      statusEl.textContent = "🔴 erro: " + err.message;
+    }
+  }
+
+  tick();
+  timer = setInterval(tick, every);
+}
+
+document.getElementById("apply").addEventListener("click", startPolling);
+
+// conecta automaticamente ao carregar
+startPolling();

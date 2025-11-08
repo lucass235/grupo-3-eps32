@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard – Firebase Realtime (REST)</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>Dashboard – Firebase Realtime (REST)</h1>
+        <div class="config">
+          <input
+            id="endpoint"
+            class="input"
+            type="text"
+            placeholder="URL do Realtime Database .json"
+          />
+          <input
+            id="interval"
+            class="input"
+            type="number"
+            min="500"
+            step="500"
+            value="2000"
+            title="ms"
+          />
+          <button class="btn" id="apply">Conectar</button>
+          <span class="pill" id="status">⏳ aguardando…</span>
+        </div>
+      </header>
+
+      <section class="grid">
+        <article class="card">
+          <div class="label">Botão</div>
+          <div class="row">
+            <div id="botaoState" class="state off">
+              <span class="dot"></span><span id="botaoTxt">OFF</span>
+            </div>
+            <span id="botaoRaw" class="pill">—</span>
+          </div>
+        </article>
+        <article class="card">
+          <div class="label">LED</div>
+          <div class="row">
+            <div id="ledState" class="state off">
+              <span class="dot"></span><span id="ledTxt">OFF</span>
+            </div>
+            <span id="ledRaw" class="pill">—</span>
+          </div>
+        </article>
+        <article class="card">
+          <div class="label">Tempo de vida</div>
+          <div class="row">
+            <div class="value" id="tempoVal">—</div>
+            <span class="pill" id="lastUpdate">—</span>
+          </div>
+        </article>
+
+        <article class="card wide">
+          <div class="row">
+            <div class="label">Histórico (tempo de vida)</div>
+            <div class="pill">Ao vivo</div>
+          </div>
+          <canvas id="tempoChart"></canvas>
+          <div class="foot">
+            Dica: edite o endpoint se precisar autenticar (?auth=TOKEN) ou
+            aponte para outro caminho, por ex.: <code>/sensores.json</code>.
+          </div>
+        </article>
+      </section>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
