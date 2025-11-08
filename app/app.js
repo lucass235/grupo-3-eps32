@@ -2,9 +2,11 @@
 const DEFAULT_ENDPOINT =
   "https://grupo3-16a7b-default-rtdb.firebaseio.com/.json";
 
-// Faixa do termômetro (ajuste se precisar)
+// Faixas
 const THERMO_MIN = 0;
 const THERMO_MAX = 60;
+const POT_MIN = 0;
+const POT_MAX = 100;
 
 const el = (id) => document.getElementById(id);
 const endpointInput = el("endpoint");
@@ -55,7 +57,7 @@ function pushTempo(v) {
   chart.update("none");
 }
 
-// Termômetro
+// Helpers de UI
 function clamp01(x) { return Math.max(0, Math.min(1, x)); }
 function setThermometer(temp) {
   const fill = el("thermoFill");
@@ -64,8 +66,23 @@ function setThermometer(temp) {
   const pct = clamp01((temp - THERMO_MIN) / (THERMO_MAX - THERMO_MIN));
   fill.style.height = (pct * 100).toFixed(1) + "%";
 }
+function setPotentiometer(v) {
+  const fill = el("potFill");
+  if (!fill) return;
+  if (!Number.isFinite(v)) {
+    fill.style.width = "0%";
+    fill.style.background = "hsl(215 80% 75%)";
+    return;
+  }
+  const pct = clamp01((v - POT_MIN) / (POT_MAX - POT_MIN));
+  fill.style.width = (pct * 100).toFixed(1) + "%";
+  // Cor: mesma matiz (azul), ficando mais saturada e escura conforme o valor
+  const sat = 70 + 20 * pct;     // 70% → 90%
+  const light = 75 - 35 * pct;   // 75% → 40%
+  fill.style.background = `hsl(215 ${sat.toFixed(0)}% ${light.toFixed(0)}%)`;
+}
 
-// --- NOVO: gráfico de correlação Temp × Umidade ---
+// --- Correlação Temp × Umidade ---
 const corrCtx = document.getElementById("corrChart");
 const corrChart = new Chart(corrCtx, {
   type: "scatter",
@@ -92,20 +109,14 @@ const histHum = [];
 
 function updateCorrelation(temp, hum) {
   if (!Number.isFinite(temp) || !Number.isFinite(hum)) return;
-
   histTemp.push(temp);
   histHum.push(hum);
   if (histTemp.length > CORR_MAX) { histTemp.shift(); histHum.shift(); }
-
-  // Atualiza pontos
   corrChart.data.datasets[0].data = histTemp.map((t, i) => ({ x: t, y: histHum[i] }));
-
-  // Regressão linear simples (y = a + b x)
   const n = histTemp.length;
   if (n >= 2) {
     const mean = (arr) => arr.reduce((s, v) => s + v, 0) / arr.length;
-    const mx = mean(histTemp);
-    const my = mean(histHum);
+    const mx = mean(histTemp), my = mean(histHum);
     let num = 0, den = 0;
     for (let i = 0; i < n; i++) {
       const dx = histTemp[i] - mx;
@@ -114,18 +125,15 @@ function updateCorrelation(temp, hum) {
     }
     const b = den === 0 ? 0 : num / den;
     const a = my - b * mx;
-
     const xmin = Math.min(...histTemp);
     const xmax = Math.max(...histTemp);
-    const line = [
+    corrChart.data.datasets[1].data = [
       { x: xmin, y: a + b * xmin },
       { x: xmax, y: a + b * xmax },
     ];
-    corrChart.data.datasets[1].data = line;
   } else {
     corrChart.data.datasets[1].data = [];
   }
-
   corrChart.update("none");
 }
 
@@ -153,6 +161,7 @@ function startPolling() {
       const tempoVida = data?.tempovida ?? data?.tempoVida ?? data?.uptime ?? null;
       const humidity = data?.humidity ?? data?.umidade ?? null;
       const tempRaw = data?.temperature ?? data?.temperatura ?? null;
+      const potRaw = data?.slider ?? data?.potentiometer ?? data?.pot ?? null;
 
       setState("botao", !!botao);
       setState("led", !!led);
@@ -185,7 +194,15 @@ function startPolling() {
         el("humVal").textContent = "—";
       }
 
-      // Atualiza correlação se ambos válidos
+      if (potRaw !== null && potRaw !== undefined) {
+        const p = Number(potRaw);
+        el("potVal").textContent = Number.isFinite(p) ? p.toFixed(0) : String(potRaw);
+        setPotentiometer(Number.isFinite(p) ? p : NaN);
+      } else {
+        el("potVal").textContent = "—";
+        setPotentiometer(NaN);
+      }
+
       if (Number.isFinite(tVal) && Number.isFinite(hVal)) {
         updateCorrelation(tVal, hVal);
       }
