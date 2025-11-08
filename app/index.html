@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Dashboard – Firebase Realtime (REST)</title>
+    <title>Check Sensors</title>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="styles.css" />
@@ -11,7 +11,7 @@
   <body>
     <div class="wrap">
       <header>
-        <h1>Dashboard – Firebase Realtime (REST)</h1>
+        <h1>Check Sensors</h1>
         <div class="config">
           <input
             id="endpoint"
@@ -129,14 +129,19 @@
               <span class="bar b5"></span>
             </div>
           </div>
-
+          
           <div class="row" style="margin-top:10px">
             <div class="label">Gravação automática</div>
             <button class="btn" id="micToggle">Ativar</button>
           </div>
           <div class="foot" id="lastRecord">—</div>
         </article>
-
+        <article class="card">
+  <div class="label">Status do Ambiente</div>
+  <div class="row center">
+    <button id="alertBtn" class="btn normal">Normal</button>
+  </div>
+</article>
         <article class="card wide">
           <div class="row">
             <div class="label">Correlação: Temperatura × Umidade</div>
@@ -144,7 +149,7 @@
           </div>
           <canvas id="corrChart"></canvas>
         </article>
-        
+
         <article class="card wide">
           <div class="row">
             <div class="label">Histórico (Tempo da Operação)</div>

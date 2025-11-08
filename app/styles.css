@@ -353,3 +353,24 @@ canvas {
     transform: scaleY(1.2);
   }
 }
+
+#alertBtn {
+  width: 100%;
+  text-align: center;
+  font-weight: 700;
+  font-size: 16px;
+  transition: all 0.3s ease;
+}
+
+#alertBtn.normal {
+  background: #14532d;
+  color: #d1fae5;
+  border: 1px solid #16a34a;
+}
+
+#alertBtn.alerta {
+  background: #7f1d1d;
+  color: #fee2e2;
+  border: 1px solid #ef4444;
+}
+
