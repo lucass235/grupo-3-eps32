@@ -2,6 +2,10 @@
 const DEFAULT_ENDPOINT =
   "https://grupo3-16a7b-default-rtdb.firebaseio.com/.json";
 
+// Faixa do termômetro (ajuste se precisar)
+const THERMO_MIN = 0;
+const THERMO_MAX = 60;
+
 const el = (id) => document.getElementById(id);
 const endpointInput = el("endpoint");
 const intervalInput = el("interval");
@@ -51,6 +55,21 @@ function pushTempo(v) {
   chart.update("none");
 }
 
+function clamp01(x) {
+  return Math.max(0, Math.min(1, x));
+}
+
+function setThermometer(temp) {
+  const fill = el("thermoFill");
+  if (!fill) return;
+  if (!Number.isFinite(temp)) {
+    fill.style.height = "0%";
+    return;
+    }
+  const pct = clamp01((temp - THERMO_MIN) / (THERMO_MAX - THERMO_MIN));
+  fill.style.height = (pct * 100).toFixed(1) + "%";
+}
+
 let timer = null;
 
 function startPolling() {
@@ -75,8 +94,14 @@ function startPolling() {
       const tempoVida =
         data?.tempovida ?? data?.tempoVida ?? data?.uptime ?? null;
 
+      // Novas variáveis
+      const humidity = data?.humidity ?? data?.umidade ?? null;
+      const tempRaw =
+        data?.temperature ?? data?.temperatura ?? null;
+
       setState("botao", !!botao);
       setState("led", !!led);
+
       if (tempoVida !== null && tempoVida !== undefined) {
         const n = Number(tempoVida);
         el("tempoVal").textContent = Number.isFinite(n)
@@ -85,6 +110,26 @@ function startPolling() {
         if (Number.isFinite(n)) pushTempo(n);
       } else {
         el("tempoVal").textContent = "—";
+      }
+
+      if (tempRaw !== null && tempRaw !== undefined) {
+        const t = Number(tempRaw);
+        el("tempVal").textContent = Number.isFinite(t)
+          ? t.toFixed(1)
+          : String(tempRaw);
+        setThermometer(Number.isFinite(t) ? t : NaN);
+      } else {
+        el("tempVal").textContent = "—";
+        setThermometer(NaN);
+      }
+
+      if (humidity !== null && humidity !== undefined) {
+        const h = Number(humidity);
+        el("humVal").textContent = Number.isFinite(h)
+          ? h.toFixed(1)
+          : String(humidity);
+      } else {
+        el("humVal").textContent = "—";
       }
 
       el("lastUpdate").textContent =
